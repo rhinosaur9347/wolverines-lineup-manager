@@ -1,0 +1,475 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Wolverines Lineup Manager</title>
+<link rel="icon" type="image/x-icon" href="favicon.ico">
+<link rel="icon" type="image/png" sizes="32x32" href="favicon-32x32.png">
+<link rel="icon" type="image/png" sizes="16x16" href="favicon-16x16.png">
+<link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png">
+<link rel="manifest" href="manifest.json">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="Wolverines">
+<meta name="theme-color" content="#2b4f8c">
+<style>
+  :root {
+    --bg-page: #F5F3EF;
+    --surface: #FFFFFF;
+    --surface-alt: #EFEDE7;
+    --border: #E4E1D8;
+    --border-strong: #D6D2C6;
+    --text-primary: #2B2A26;
+    --text-secondary: #83806F;
+    --text-muted: #ACA894;
+    --accent: #C2660B;
+    --accent-bg: #FBE7D0;
+    --accent-text: #8A4A0C;
+    --slate: #3F4656;
+    --slate-bg: #E7E9EE;
+    --slate-text: #3F4656;
+    --danger: #B4451F;
+    --danger-bg: #FBE9E2;
+    --radius: 12px;
+    --shadow: 0 1px 2px rgba(43,42,38,0.06), 0 1px 8px rgba(43,42,38,0.04);
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Inter, Arial, sans-serif;
+    background: var(--bg-page);
+    color: var(--text-primary);
+    padding: 20px;
+    -webkit-font-smoothing: antialiased;
+  }
+  .wrap { max-width: 980px; margin: 0 auto; }
+
+  .header { margin-bottom: 22px; }
+  .header h1 {
+    margin: 0 0 4px;
+    font-size: 22px;
+    font-weight: 650;
+    color: var(--text-primary);
+    letter-spacing: -0.01em;
+  }
+  .header p { margin: 0; color: var(--text-secondary); font-size: 13.5px; }
+
+  .panel {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow);
+    padding: 16px;
+    margin-bottom: 16px;
+  }
+  .section-label {
+    font-size: 12px;
+    font-weight: 650;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--text-secondary);
+    margin: 0 0 10px;
+  }
+
+  .chip-row { display: flex; flex-wrap: wrap; gap: 8px; }
+  .chip {
+    padding: 6px 13px;
+    border-radius: 999px;
+    border: 1px solid var(--border-strong);
+    background: var(--surface);
+    color: var(--text-primary);
+    font-weight: 550;
+    font-size: 13px;
+    cursor: pointer;
+  }
+  .chip.inactive {
+    background: var(--surface-alt);
+    border-color: var(--border);
+    color: var(--text-muted);
+    text-decoration: line-through;
+  }
+
+  .template-row { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 16px; }
+  .btn {
+    border: 1px solid var(--border-strong);
+    border-radius: 9px;
+    padding: 9px 15px;
+    font-weight: 600;
+    font-size: 13px;
+    cursor: pointer;
+    background: var(--surface);
+    color: var(--text-primary);
+  }
+  .btn:hover { background: var(--surface-alt); }
+  .btn-primary { background: var(--accent); border-color: var(--accent); color: #FFF8F0; }
+  .btn-primary:hover { background: #A8560A; }
+  .btn-ghost { background: transparent; border-color: var(--border); color: var(--text-secondary); }
+  .btn-ghost:hover { background: var(--surface-alt); }
+  .btn-sm { padding: 6px 11px; font-size: 12.5px; }
+
+  .boards { display: grid; grid-template-columns: 1fr; gap: 16px; }
+  @media (min-width: 720px) { .boards { grid-template-columns: 1fr 1fr; } }
+
+  .board-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 10px 14px;
+    border-radius: 10px 10px 0 0;
+  }
+  .board-header.offense { background: var(--accent-bg); }
+  .board-header.defense { background: var(--slate-bg); }
+  .board-title { font-weight: 650; font-size: 13.5px; letter-spacing: 0.01em; }
+  .board-header.offense .board-title { color: var(--accent-text); }
+  .board-header.defense .board-title { color: var(--slate-text); }
+  .board-count { font-size: 12px; font-weight: 600; }
+  .board-header.offense .board-count { color: var(--accent-text); }
+  .board-header.defense .board-count { color: var(--slate-text); }
+
+  .slot-list {
+    border: 1px solid var(--border);
+    border-top: none;
+    border-radius: 0 0 10px 10px;
+    overflow: hidden;
+  }
+  .slot-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 8px 12px;
+    border-bottom: 1px solid var(--border);
+  }
+  .slot-row:last-child { border-bottom: none; }
+  .slot-row:nth-child(even) { background: #FAF9F6; }
+
+  .pos-circle {
+    width: 38px;
+    height: 38px;
+    flex-shrink: 0;
+    border-radius: 50%;
+    border: 1.5px solid var(--border-strong);
+    background: var(--surface);
+    color: var(--text-secondary);
+    font-weight: 700;
+    font-size: 10.5px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+  }
+  .pos-circle.filled { border-color: var(--slate); color: var(--slate); background: var(--slate-bg); }
+  .pos-circle.empty { border-style: dashed; color: var(--text-muted); }
+  .pos-circle.selected {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: #FFF8F0;
+    box-shadow: 0 0 0 3px var(--accent-bg);
+  }
+  .slot-name { font-weight: 600; font-size: 13.5px; color: var(--text-primary); }
+  .slot-name.empty { color: var(--text-muted); font-style: italic; font-weight: 500; }
+
+  .bench-label {
+    font-size: 11px;
+    font-weight: 650;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--text-muted);
+    margin: 10px 0 5px;
+  }
+  .bench-box {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 7px;
+    min-height: 38px;
+    padding: 8px;
+    border: 1px dashed var(--border-strong);
+    border-radius: 9px;
+    background: var(--surface-alt);
+  }
+  .bench-chip {
+    padding: 6px 12px;
+    border-radius: 999px;
+    border: 1px solid var(--border-strong);
+    background: var(--surface);
+    color: var(--text-primary);
+    font-weight: 550;
+    font-size: 13px;
+    cursor: pointer;
+  }
+  .bench-chip.selected { background: var(--accent); border-color: var(--accent); color: #FFF8F0; }
+  .bench-empty { font-size: 12px; color: var(--text-muted); font-style: italic; padding: 6px; }
+
+  .commit-row { display: flex; gap: 8px; margin-top: 12px; align-items: center; }
+
+  .shift-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; }
+  @media (min-width: 640px) { .shift-grid { grid-template-columns: repeat(4, 1fr); } }
+  .shift-card {
+    border: 1px solid var(--border);
+    border-radius: 9px;
+    padding: 9px 12px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background: var(--surface);
+  }
+  .shift-card.inactive { border-color: var(--border); color: var(--text-muted); background: var(--surface-alt); }
+  .shift-name { font-weight: 600; font-size: 13px; }
+  .shift-count { font-weight: 700; font-size: 17px; color: var(--text-primary); }
+  .shift-card.inactive .shift-count { color: var(--text-muted); }
+</style>
+</head>
+<body>
+<div class="wrap" id="app"></div>
+
+<script>
+const OFFENSE_POS = ["QB","WR","WR","C","LG","RG","SL","RB","RB"];
+const DEFENSE_POS = ["DT","DT","DT","LB","LB","LB","DB","DB","DB"];
+
+const ROSTER_INIT = ["Blake","Carter","Gus","Wyatt","Elliott M.","Asher","Ethan","Griffin","Luca","Elliot R.","Preston","Mason","Gage"];
+
+const OFFENSE_A = ["Blake","Elliott M.","Asher","Ethan","Griffin","Luca","Gage","Gus","Wyatt"];
+const OFFENSE_B = ["Carter","Asher","Elliott M.","Wyatt","Griffin","Elliot R.","Ethan","Preston","Mason"];
+const DEFENSE_A = ["Luca","Gage","Wyatt","Gus","Ethan","Griffin","Asher","Elliott M.","Blake"];
+const DEFENSE_B = ["Ethan","Wyatt","Elliot R.","Elliott M.","Griffin","Mason","Carter","Asher","Preston"];
+
+function makeSlots(posArr, nameArr, activeSet) {
+  return posArr.map(function(pos, i){
+    const nm = nameArr[i];
+    return { pos: pos, name: activeSet.has(nm) ? nm : "" };
+  });
+}
+
+let state = {
+  roster: ROSTER_INIT.map(function(name){ return { name: name, active: true }; }),
+  offenseSlots: OFFENSE_POS.map(function(pos,i){ return { pos: pos, name: OFFENSE_A[i] }; }),
+  defenseSlots: DEFENSE_POS.map(function(pos,i){ return { pos: pos, name: DEFENSE_B[i] }; }),
+  selOffense: null,
+  selDefense: null,
+  shiftCounts: {},
+  drivesOffense: 0,
+  drivesDefense: 0,
+  history: []
+};
+ROSTER_INIT.forEach(function(n){ state.shiftCounts[n] = 0; });
+
+function activeSet() {
+  const s = new Set();
+  state.roster.forEach(function(k){ if (k.active) s.add(k.name); });
+  return s;
+}
+function activeNames() {
+  return state.roster.filter(function(k){ return k.active; }).map(function(k){ return k.name; });
+}
+
+function loadTemplate(which) {
+  const as = activeSet();
+  if (which === "half1") {
+    state.offenseSlots = makeSlots(OFFENSE_POS, OFFENSE_A, as);
+    state.defenseSlots = makeSlots(DEFENSE_POS, DEFENSE_B, as);
+  } else {
+    state.offenseSlots = makeSlots(OFFENSE_POS, OFFENSE_B, as);
+    state.defenseSlots = makeSlots(DEFENSE_POS, DEFENSE_A, as);
+  }
+  state.selOffense = null;
+  state.selDefense = null;
+  render();
+}
+
+function toggleActive(name) {
+  state.roster = state.roster.map(function(k){ return k.name === name ? { name: k.name, active: !k.active } : k; });
+  if (!state.roster.find(function(k){ return k.name === name; }).active) {
+    state.offenseSlots = state.offenseSlots.map(function(s){ return s.name === name ? { pos: s.pos, name: "" } : s; });
+    state.defenseSlots = state.defenseSlots.map(function(s){ return s.name === name ? { pos: s.pos, name: "" } : s; });
+  }
+  state.selOffense = null;
+  state.selDefense = null;
+  render();
+}
+
+function getSlots(side) { return side === "offense" ? state.offenseSlots : state.defenseSlots; }
+function setSlots(side, arr) { if (side === "offense") state.offenseSlots = arr; else state.defenseSlots = arr; }
+
+function handleSlotTap(side, index) {
+  const selKey = side === "offense" ? "selOffense" : "selDefense";
+  const sel = state[selKey];
+  const slots = getSlots(side);
+
+  if (!sel) {
+    if (slots[index].name) state[selKey] = { kind: "slot", index: index };
+    render();
+    return;
+  }
+  if (sel.kind === "slot" && sel.index === index) { state[selKey] = null; render(); return; }
+  if (sel.kind === "slot") {
+    const arr = slots.map(function(s){ return Object.assign({}, s); });
+    const tmp = arr[sel.index].name;
+    arr[sel.index].name = arr[index].name;
+    arr[index].name = tmp;
+    setSlots(side, arr);
+    state[selKey] = null;
+    render();
+    return;
+  }
+  if (sel.kind === "bench") {
+    const arr = slots.map(function(s){ return Object.assign({}, s); });
+    arr[index].name = sel.name;
+    setSlots(side, arr);
+    state[selKey] = null;
+    render();
+  }
+}
+
+function handleBenchTap(side, name) {
+  const selKey = side === "offense" ? "selOffense" : "selDefense";
+  const sel = state[selKey];
+  if (!sel) { state[selKey] = { kind: "bench", name: name }; render(); return; }
+  if (sel.kind === "bench" && sel.name === name) { state[selKey] = null; render(); return; }
+  if (sel.kind === "bench") { state[selKey] = { kind: "bench", name: name }; render(); return; }
+  if (sel.kind === "slot") {
+    const arr = getSlots(side).map(function(s){ return Object.assign({}, s); });
+    arr[sel.index].name = name;
+    setSlots(side, arr);
+    state[selKey] = null;
+    render();
+  }
+}
+
+function benchSelected(side) {
+  const selKey = side === "offense" ? "selOffense" : "selDefense";
+  const sel = state[selKey];
+  if (!sel || sel.kind !== "slot") return;
+  const arr = getSlots(side).map(function(s){ return Object.assign({}, s); });
+  arr[sel.index].name = "";
+  setSlots(side, arr);
+  state[selKey] = null;
+  render();
+}
+
+function commitDrive(side) {
+  const slots = getSlots(side);
+  const snapshot = {
+    side: side,
+    names: slots.filter(function(s){ return s.name; }).map(function(s){ return s.name; })
+  };
+  snapshot.names.forEach(function(n){
+    if (state.shiftCounts[n] === undefined) state.shiftCounts[n] = 0;
+    state.shiftCounts[n] += 1;
+  });
+  if (side === "offense") state.drivesOffense += 1; else state.drivesDefense += 1;
+  state.history.push(snapshot);
+  render();
+}
+
+function undoLast(side) {
+  for (let i = state.history.length - 1; i >= 0; i--) {
+    if (state.history[i].side === side) {
+      const snap = state.history[i];
+      snap.names.forEach(function(n){ state.shiftCounts[n] -= 1; });
+      if (side === "offense") state.drivesOffense -= 1; else state.drivesDefense -= 1;
+      state.history.splice(i, 1);
+      render();
+      return;
+    }
+  }
+}
+
+function esc(s) {
+  return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
+}
+
+function renderBoard(side, title, driveCount) {
+  const slots = getSlots(side);
+  const names = activeNames();
+  const placed = {};
+  slots.forEach(function(s){ if (s.name) placed[s.name] = true; });
+  const bench = names.filter(function(n){ return !placed[n]; });
+  const sel = side === "offense" ? state.selOffense : state.selDefense;
+
+  let html = '<div class="board-header ' + side + '">' +
+    '<span class="board-title">' + title + '</span>' +
+    '<span class="board-count">' + driveCount + ' drive' + (driveCount === 1 ? '' : 's') + ' committed</span>' +
+    '</div><div class="slot-list">';
+  slots.forEach(function(slot, i){
+    const isSel = sel && sel.kind === "slot" && sel.index === i;
+    let circleClass = "pos-circle";
+    if (isSel) circleClass += " selected";
+    else if (slot.name) circleClass += " filled";
+    else circleClass += " empty";
+    html += '<div class="slot-row">' +
+      '<div class="' + circleClass + '" data-action="tap-slot" data-side="' + side + '" data-index="' + i + '">' + slot.pos + '</div>' +
+      '<div class="slot-name' + (slot.name ? '' : ' empty') + '">' + (slot.name ? esc(slot.name) : 'open slot') + '</div>' +
+      '</div>';
+  });
+  html += '</div>';
+  html += '<div class="bench-label">Bench</div><div class="bench-box">';
+  if (bench.length === 0) {
+    html += '<div class="bench-empty">everyone&rsquo;s placed</div>';
+  } else {
+    bench.forEach(function(name){
+      const isSel = sel && sel.kind === "bench" && sel.name === name;
+      html += '<div class="bench-chip' + (isSel ? ' selected' : '') + '" data-action="tap-bench" data-side="' + side + '" data-name="' + esc(name) + '">' + esc(name) + '</div>';
+    });
+  }
+  html += '</div>';
+  html += '<div class="commit-row">' +
+    '<div class="btn btn-primary btn-sm" data-action="commit" data-side="' + side + '">Commit this drive</div>';
+  if (sel && sel.kind === "slot") {
+    html += '<div class="btn btn-ghost btn-sm" data-action="bench-selected" data-side="' + side + '">Bench selected</div>';
+  }
+  html += '<div class="btn btn-ghost btn-sm" data-action="undo" data-side="' + side + '">Undo last</div>';
+  html += '</div>';
+  return html;
+}
+
+function render() {
+  const app = document.getElementById("app");
+  const sortedShifts = Object.keys(state.shiftCounts).sort(function(a,b){ return state.shiftCounts[b] - state.shiftCounts[a]; });
+
+  let html = '';
+  html += '<div class="header"><h1>Wolverines lineup manager</h1><p>Load a starting rotation, tap to adjust, commit each drive as it happens. The shift counter tracks who actually needs run.</p></div>';
+
+  html += '<div class="panel"><div class="section-label">Roster \u2014 tap to mark absent</div><div class="chip-row">';
+  state.roster.forEach(function(k){
+    html += '<div class="chip' + (k.active ? '' : ' inactive') + '" data-action="toggle-roster" data-name="' + esc(k.name) + '">' + esc(k.name) + '</div>';
+  });
+  html += '</div></div>';
+
+  html += '<div class="template-row">' +
+    '<div class="btn" data-action="load-template" data-which="half1">Load rotation A (off) / B (def)</div>' +
+    '<div class="btn" data-action="load-template" data-which="half2">Load rotation B (off) / A (def)</div>' +
+    '</div>';
+
+  html += '<div class="panel"><div class="boards">';
+  html += '<div>' + renderBoard("offense", "Offense", state.drivesOffense) + '</div>';
+  html += '<div>' + renderBoard("defense", "Defense", state.drivesDefense) + '</div>';
+  html += '</div></div>';
+
+  html += '<div class="panel"><div class="section-label">Shift totals (committed drives only)</div><div class="shift-grid">';
+  sortedShifts.forEach(function(name){
+    const k = state.roster.find(function(r){ return r.name === name; });
+    const inactive = !(k && k.active);
+    html += '<div class="shift-card' + (inactive ? ' inactive' : '') + '"><span class="shift-name">' + esc(name) + '</span><span class="shift-count">' + state.shiftCounts[name] + '</span></div>';
+  });
+  html += '</div></div>';
+
+  app.innerHTML = html;
+}
+
+document.getElementById("app").addEventListener("click", function(e){
+  const el = e.target.closest("[data-action]");
+  if (!el) return;
+  const action = el.dataset.action;
+  if (action === "toggle-roster") toggleActive(el.dataset.name);
+  else if (action === "load-template") loadTemplate(el.dataset.which);
+  else if (action === "tap-slot") handleSlotTap(el.dataset.side, parseInt(el.dataset.index, 10));
+  else if (action === "tap-bench") handleBenchTap(el.dataset.side, el.dataset.name);
+  else if (action === "bench-selected") benchSelected(el.dataset.side);
+  else if (action === "commit") commitDrive(el.dataset.side);
+  else if (action === "undo") undoLast(el.dataset.side);
+});
+
+render();
+</script>
+</body>
+</html>
