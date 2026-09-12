@@ -13,6 +13,11 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="apple-mobile-web-app-title" content="Wolverines">
 <meta name="theme-color" content="#2b4f8c">
+
+<!-- Firebase (optional). If firebaseConfig below is left blank, the app runs fine on a single device using local storage only. Fill in firebaseConfig near the top of the <script> at the bottom of this file to sync live across every coach's phone. -->
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+
 <style>
   :root {
     --bg-page: #F5F3EF;
@@ -31,6 +36,8 @@
     --slate-text: #3F4656;
     --danger: #B4451F;
     --danger-bg: #FBE9E2;
+    --good: #3F6B3F;
+    --good-bg: #E6EEE3;
     --radius: 12px;
     --shadow: 0 1px 2px rgba(43,42,38,0.06), 0 1px 8px rgba(43,42,38,0.04);
   }
@@ -45,7 +52,7 @@
   }
   .wrap { max-width: 980px; margin: 0 auto; }
 
-  .header { margin-bottom: 22px; }
+  .header { margin-bottom: 14px; }
   .header h1 {
     margin: 0 0 4px;
     font-size: 22px;
@@ -54,6 +61,19 @@
     letter-spacing: -0.01em;
   }
   .header p { margin: 0; color: var(--text-secondary); font-size: 13.5px; }
+
+  .sync-banner {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 12px;
+    font-weight: 600;
+    padding: 5px 11px;
+    border-radius: 999px;
+    margin-bottom: 18px;
+  }
+  .sync-banner.on { background: var(--good-bg); color: var(--good); }
+  .sync-banner.off { background: var(--surface-alt); color: var(--text-secondary); }
 
   .panel {
     background: var(--surface);
@@ -71,6 +91,7 @@
     color: var(--text-secondary);
     margin: 0 0 10px;
   }
+  .section-sub { font-size: 12.5px; color: var(--text-secondary); margin: -6px 0 12px; }
 
   .chip-row { display: flex; flex-wrap: wrap; gap: 8px; }
   .chip {
@@ -90,7 +111,18 @@
     text-decoration: line-through;
   }
 
-  .template-row { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 16px; }
+  .template-row { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 10px; }
+  .custom-tag {
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    color: var(--accent-text);
+    background: var(--accent-bg);
+    padding: 2px 6px;
+    border-radius: 999px;
+    margin-left: 4px;
+  }
   .btn {
     border: 1px solid var(--border-strong);
     border-radius: 9px;
@@ -106,6 +138,8 @@
   .btn-primary:hover { background: #A8560A; }
   .btn-ghost { background: transparent; border-color: var(--border); color: var(--text-secondary); }
   .btn-ghost:hover { background: var(--surface-alt); }
+  .btn-danger { background: transparent; border-color: var(--danger); color: var(--danger); }
+  .btn-danger:hover { background: var(--danger-bg); }
   .btn-sm { padding: 6px 11px; font-size: 12.5px; }
 
   .boards { display: grid; grid-template-columns: 1fr; gap: 16px; }
@@ -200,7 +234,7 @@
   .bench-chip.selected { background: var(--accent); border-color: var(--accent); color: #FFF8F0; }
   .bench-empty { font-size: 12px; color: var(--text-muted); font-style: italic; padding: 6px; }
 
-  .commit-row { display: flex; gap: 8px; margin-top: 12px; align-items: center; }
+  .commit-row { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; align-items: center; }
 
   .shift-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; }
   @media (min-width: 640px) { .shift-grid { grid-template-columns: repeat(4, 1fr); } }
@@ -223,6 +257,34 @@
 <div class="wrap" id="app"></div>
 
 <script>
+/* ================= Firebase (optional multi-coach sync) =================
+   Leave every value below as "" to run in single-device mode (saved to
+   this phone only, via localStorage). To sync live across every coach's
+   phone, create a free project at console.firebase.google.com, enable
+   Firestore, and paste your web app config values in below. */
+const firebaseConfig = {
+  apiKey: "AIzaSyBDW9A7RBiy7IeWe37JsZ_8af8qjgCOJJ0",
+  authDomain: "wolverines-lineup.firebaseapp.com",
+  projectId: "wolverines-lineup",
+  storageBucket: "wolverines-lineup.firebasestorage.app",
+  messagingSenderId: "450191188752",
+  appId: "1:450191188752:web:c633f241fe095453213b95"
+};
+/* =========================================================================== */
+
+const firebaseConfigured = !!(firebaseConfig.apiKey && firebaseConfig.projectId);
+let db = null;
+let firebaseConnected = false;
+if (firebaseConfigured && window.firebase) {
+  try {
+    firebase.initializeApp(firebaseConfig);
+    db = firebase.firestore();
+  } catch (e) {
+    db = null;
+  }
+}
+
+const STORAGE_KEY = "wolverines_state_v1";
 const OFFENSE_POS = ["QB","WR","WR","C","LG","RG","SL","RB","RB"];
 const DEFENSE_POS = ["DT","DT","DT","LB","LB","LB","DB","DB","DB"];
 
@@ -249,9 +311,81 @@ let state = {
   shiftCounts: {},
   drivesOffense: 0,
   drivesDefense: 0,
-  history: []
+  history: [],
+  templateHalf1: null,
+  templateHalf2: null
 };
 ROSTER_INIT.forEach(function(n){ state.shiftCounts[n] = 0; });
+
+/* ---------- persistence: localStorage always, Firestore if configured ---------- */
+
+function syncPayload() {
+  return {
+    roster: state.roster,
+    offenseSlots: state.offenseSlots,
+    defenseSlots: state.defenseSlots,
+    shiftCounts: state.shiftCounts,
+    drivesOffense: state.drivesOffense,
+    drivesDefense: state.drivesDefense,
+    history: state.history,
+    templateHalf1: state.templateHalf1,
+    templateHalf2: state.templateHalf2
+  };
+}
+
+function applyPayload(data) {
+  if (!data) return;
+  if (data.roster) state.roster = data.roster;
+  if (data.offenseSlots) state.offenseSlots = data.offenseSlots;
+  if (data.defenseSlots) state.defenseSlots = data.defenseSlots;
+  if (data.shiftCounts) state.shiftCounts = data.shiftCounts;
+  if (typeof data.drivesOffense === "number") state.drivesOffense = data.drivesOffense;
+  if (typeof data.drivesDefense === "number") state.drivesDefense = data.drivesDefense;
+  if (data.history) state.history = data.history;
+  state.templateHalf1 = data.templateHalf1 || null;
+  state.templateHalf2 = data.templateHalf2 || null;
+}
+
+function persist() {
+  const payload = syncPayload();
+  try { localStorage.setItem(STORAGE_KEY, JSON.stringify(payload)); } catch (e) {}
+  if (db) {
+    db.collection("wolverines").doc("gameState").set(payload).catch(function(e){
+      console.error("Firestore write failed", e);
+    });
+  }
+}
+
+function loadFromLocalStorage() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (!raw) return false;
+    applyPayload(JSON.parse(raw));
+    return true;
+  } catch (e) {
+    return false;
+  }
+}
+
+loadFromLocalStorage();
+
+if (db) {
+  db.collection("wolverines").doc("gameState").onSnapshot(function(doc){
+    firebaseConnected = true;
+    if (doc.exists) {
+      applyPayload(doc.data());
+    } else {
+      persist();
+    }
+    render();
+  }, function(err){
+    console.error("Firestore sync error", err);
+    firebaseConnected = false;
+    render();
+  });
+}
+
+/* ---------- helpers ---------- */
 
 function activeSet() {
   const s = new Set();
@@ -262,9 +396,29 @@ function activeNames() {
   return state.roster.filter(function(k){ return k.active; }).map(function(k){ return k.name; });
 }
 
+function saveCurrentAsTemplate(which) {
+  const data = {
+    offense: state.offenseSlots.map(function(s){ return s.name; }),
+    defense: state.defenseSlots.map(function(s){ return s.name; })
+  };
+  if (which === "half1") state.templateHalf1 = data; else state.templateHalf2 = data;
+  persist();
+  render();
+}
+
+function resetTemplate(which) {
+  if (which === "half1") state.templateHalf1 = null; else state.templateHalf2 = null;
+  persist();
+  render();
+}
+
 function loadTemplate(which) {
   const as = activeSet();
-  if (which === "half1") {
+  const stored = which === "half1" ? state.templateHalf1 : state.templateHalf2;
+  if (stored) {
+    state.offenseSlots = makeSlots(OFFENSE_POS, stored.offense, as);
+    state.defenseSlots = makeSlots(DEFENSE_POS, stored.defense, as);
+  } else if (which === "half1") {
     state.offenseSlots = makeSlots(OFFENSE_POS, OFFENSE_A, as);
     state.defenseSlots = makeSlots(DEFENSE_POS, DEFENSE_B, as);
   } else {
@@ -273,6 +427,7 @@ function loadTemplate(which) {
   }
   state.selOffense = null;
   state.selDefense = null;
+  persist();
   render();
 }
 
@@ -284,6 +439,7 @@ function toggleActive(name) {
   }
   state.selOffense = null;
   state.selDefense = null;
+  persist();
   render();
 }
 
@@ -308,6 +464,7 @@ function handleSlotTap(side, index) {
     arr[index].name = tmp;
     setSlots(side, arr);
     state[selKey] = null;
+    persist();
     render();
     return;
   }
@@ -316,6 +473,7 @@ function handleSlotTap(side, index) {
     arr[index].name = sel.name;
     setSlots(side, arr);
     state[selKey] = null;
+    persist();
     render();
   }
 }
@@ -331,6 +489,7 @@ function handleBenchTap(side, name) {
     arr[sel.index].name = name;
     setSlots(side, arr);
     state[selKey] = null;
+    persist();
     render();
   }
 }
@@ -343,6 +502,7 @@ function benchSelected(side) {
   arr[sel.index].name = "";
   setSlots(side, arr);
   state[selKey] = null;
+  persist();
   render();
 }
 
@@ -358,6 +518,7 @@ function commitDrive(side) {
   });
   if (side === "offense") state.drivesOffense += 1; else state.drivesDefense += 1;
   state.history.push(snapshot);
+  persist();
   render();
 }
 
@@ -368,10 +529,23 @@ function undoLast(side) {
       snap.names.forEach(function(n){ state.shiftCounts[n] -= 1; });
       if (side === "offense") state.drivesOffense -= 1; else state.drivesDefense -= 1;
       state.history.splice(i, 1);
+      persist();
       render();
       return;
     }
   }
+}
+
+function resetGame() {
+  const ok = window.confirm("Start a new game? This clears shift totals, drive counts, and undo history for everyone. Rosters and saved rotations stay.");
+  if (!ok) return;
+  state.shiftCounts = {};
+  state.roster.forEach(function(k){ state.shiftCounts[k.name] = 0; });
+  state.drivesOffense = 0;
+  state.drivesDefense = 0;
+  state.history = [];
+  persist();
+  render();
 }
 
 function esc(s) {
@@ -417,7 +591,11 @@ function renderBoard(side, title, driveCount) {
   if (sel && sel.kind === "slot") {
     html += '<div class="btn btn-ghost btn-sm" data-action="bench-selected" data-side="' + side + '">Bench selected</div>';
   }
-  html += '<div class="btn btn-ghost btn-sm" data-action="undo" data-side="' + side + '">Undo last</div>';
+  if (driveCount > 0) {
+    html += '<div class="btn btn-ghost btn-sm" data-action="undo" data-side="' + side + '">Undo last commit</div>';
+  } else {
+    html += '<div class="btn btn-ghost btn-sm" style="opacity:0.4;cursor:default;" title="Nothing committed yet on this side">Undo last commit</div>';
+  }
   html += '</div>';
   return html;
 }
@@ -427,7 +605,13 @@ function render() {
   const sortedShifts = Object.keys(state.shiftCounts).sort(function(a,b){ return state.shiftCounts[b] - state.shiftCounts[a]; });
 
   let html = '';
-  html += '<div class="header"><h1>Wolverines lineup manager</h1><p>Load a starting rotation, tap to adjust, commit each drive as it happens. The shift counter tracks who actually needs run.</p></div>';
+  html += '<div class="header"><h1>Wolverines lineup manager</h1><p>Load a starting rotation, tap to adjust, commit each drive as it happens. Shift totals only change when you commit, so \u201cundo last commit\u201d reverses a commit, not a swap.</p></div>';
+
+  if (firebaseConfigured) {
+    html += '<div class="sync-banner ' + (firebaseConnected ? 'on' : 'off') + '">' + (firebaseConnected ? '\u25CF Synced live across coaches' : '\u25CB Connecting\u2026') + '</div>';
+  } else {
+    html += '<div class="sync-banner off">\u25CB Saved on this device only \u2014 see Gameday Planning below to enable multi-coach sync</div>';
+  }
 
   html += '<div class="panel"><div class="section-label">Roster \u2014 tap to mark absent</div><div class="chip-row">';
   state.roster.forEach(function(k){
@@ -435,10 +619,12 @@ function render() {
   });
   html += '</div></div>';
 
+  html += '<div class="panel"><div class="section-label">Rotation templates</div>';
   html += '<div class="template-row">' +
-    '<div class="btn" data-action="load-template" data-which="half1">Load rotation A (off) / B (def)</div>' +
-    '<div class="btn" data-action="load-template" data-which="half2">Load rotation B (off) / A (def)</div>' +
+    '<div class="btn" data-action="load-template" data-which="half1">Load rotation A (off) / B (def)' + (state.templateHalf1 ? ' <span class="custom-tag">custom</span>' : '') + '</div>' +
+    '<div class="btn" data-action="load-template" data-which="half2">Load rotation B (off) / A (def)' + (state.templateHalf2 ? ' <span class="custom-tag">custom</span>' : '') + '</div>' +
     '</div>';
+  html += '</div>';
 
   html += '<div class="panel"><div class="boards">';
   html += '<div>' + renderBoard("offense", "Offense", state.drivesOffense) + '</div>';
@@ -453,6 +639,22 @@ function render() {
   });
   html += '</div></div>';
 
+  html += '<div class="panel"><div class="section-label">Gameday planning</div>';
+  html += '<div class="section-sub">Set up next game\u2019s starting lineups here ahead of time, so during the game everyone just taps Load and goes.</div>';
+  html += '<div class="template-row">' +
+    '<div class="btn btn-ghost btn-sm" data-action="save-template" data-which="half1">Save current board as rotation A/B (half 1)</div>' +
+    '<div class="btn btn-ghost btn-sm" data-action="save-template" data-which="half2">Save current board as rotation B/A (half 2)</div>' +
+    '</div>';
+  html += '<div class="template-row">';
+  if (state.templateHalf1) html += '<div class="btn btn-ghost btn-sm" data-action="reset-template" data-which="half1">Reset half 1 to built-in default</div>';
+  if (state.templateHalf2) html += '<div class="btn btn-ghost btn-sm" data-action="reset-template" data-which="half2">Reset half 2 to built-in default</div>';
+  html += '</div>';
+  html += '<div class="template-row"><div class="btn btn-danger btn-sm" data-action="reset-game">Start a new game (reset shift totals)</div></div>';
+  if (!firebaseConfigured) {
+    html += '<div class="section-sub" style="margin-top:10px;">To share this live across all 4 coaches\u2019 phones instead of just this device, this app supports Firebase sync. Ask Coach Steve for the synced version of this file, or see the comment at the top of the page source for setup steps.</div>';
+  }
+  html += '</div>';
+
   app.innerHTML = html;
 }
 
@@ -462,11 +664,14 @@ document.getElementById("app").addEventListener("click", function(e){
   const action = el.dataset.action;
   if (action === "toggle-roster") toggleActive(el.dataset.name);
   else if (action === "load-template") loadTemplate(el.dataset.which);
+  else if (action === "save-template") saveCurrentAsTemplate(el.dataset.which);
+  else if (action === "reset-template") resetTemplate(el.dataset.which);
   else if (action === "tap-slot") handleSlotTap(el.dataset.side, parseInt(el.dataset.index, 10));
   else if (action === "tap-bench") handleBenchTap(el.dataset.side, el.dataset.name);
   else if (action === "bench-selected") benchSelected(el.dataset.side);
   else if (action === "commit") commitDrive(el.dataset.side);
   else if (action === "undo") undoLast(el.dataset.side);
+  else if (action === "reset-game") resetGame();
 });
 
 render();
