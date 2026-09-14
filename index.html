@@ -645,10 +645,6 @@ function render() {
     '<div class="btn btn-ghost btn-sm" data-action="save-template" data-which="half1">Save current board as rotation A/B (half 1)</div>' +
     '<div class="btn btn-ghost btn-sm" data-action="save-template" data-which="half2">Save current board as rotation B/A (half 2)</div>' +
     '</div>';
-  html += '<div class="template-row">';
-  if (state.templateHalf1) html += '<div class="btn btn-ghost btn-sm" data-action="reset-template" data-which="half1">Reset half 1 to built-in default</div>';
-  if (state.templateHalf2) html += '<div class="btn btn-ghost btn-sm" data-action="reset-template" data-which="half2">Reset half 2 to built-in default</div>';
-  html += '</div>';
   html += '<div class="template-row"><div class="btn btn-danger btn-sm" data-action="reset-game">Start a new game (reset shift totals)</div></div>';
   if (!firebaseConfigured) {
     html += '<div class="section-sub" style="margin-top:10px;">To share this live across all 4 coaches\u2019 phones instead of just this device, this app supports Firebase sync. Ask Coach Steve for the synced version of this file, or see the comment at the top of the page source for setup steps.</div>';
